@@ -1,38 +1,31 @@
 <template>
   <div class="p-2">
-    <transition :enter-active-class="proxy?.animate.searchAnimate.enter" :leave-active-class="proxy?.animate.searchAnimate.leave">
-      <div v-show="showSearch" class="mb-[10px]">
-        <el-card shadow="hover">
-          <el-form ref="queryFormRef" :model="queryParams" :inline="true">
-            <el-form-item label="学生" prop="studentId">
-              <el-select
-                v-model="queryParams.studentId"
-                filterable
-                clearable
-                placeholder="请选择学生"
-              >
-                <el-option v-for="item in studentOptions" :key="item.id" :label="item.name" :value="item.id" />
-              </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-              <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-            </el-form-item>
-          </el-form>
-        </el-card>
-      </div>
-    </transition>
-
     <el-card shadow="never">
       <template #header>
-        <el-row :gutter="10" class="mb8">
-          <el-col :span="24">
-            <div class="group-title">
-              <span v-if="currentGroupName">{{ currentGroupName }}</span>
-              <span v-else>用户组</span>
+        <div class="header-flex">
+          <div class="group-title">
+            <span v-if="currentGroupName">{{ currentGroupName }}</span>
+            <span v-else>用户组</span>
+          </div>
+          <transition :enter-active-class="proxy?.animate.searchAnimate.enter" :leave-active-class="proxy?.animate.searchAnimate.leave">
+            <div v-show="showSearch" class="search-form-wrapper">
+              <el-form ref="queryFormRef" :model="queryParams" :inline="true">
+                <el-form-item label="学生">
+                  <el-input
+                    v-model="searchStudentName"
+                    placeholder="请输入学生姓名"
+                    clearable
+                    @keyup.enter="handleQuery"
+                  />
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+                  <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+                </el-form-item>
+              </el-form>
             </div>
-          </el-col>
-        </el-row>
+          </transition>
+        </div>
         <el-row :gutter="10" class="mb8">
           <el-col :span="1.5">
             <el-button type="default" icon="ArrowLeft" @click="goBack">返回用户组</el-button>
@@ -164,6 +157,7 @@ const data = reactive<PageData<GroupRelForm, GroupRelQuery>>({
     pageNum: 1,
     pageSize: 10,
     studentId: undefined,
+    studentName: '',
     groupId: undefined,
     params: {}
   },
@@ -186,6 +180,9 @@ const studentTableRef = ref();
 
 const route = useRoute();
 const router = useRouter();
+
+const allGroupRelList = ref<GroupRelVO[]>([]);
+const searchStudentName = ref('');
 
 const getAllGroups = async () => {
   const res = await listGroup();
@@ -272,10 +269,8 @@ const setSelectedStudents = async () => {
 /** 查询学生用户组关联列表 */
 const getList = async () => {
   loading.value = true;
-  console.log(queryParams.value);
-  console.log("发送请求:",queryParams.value.groupId);
   const res = await listGroupRel(queryParams.value);
-  groupRelList.value = (res.rows || []).map(item => {
+  allGroupRelList.value = (res.rows || []).map(item => {
     const student = studentMap.value[item.studentId] || {};
     return {
       ...item,
@@ -285,7 +280,8 @@ const getList = async () => {
       studentDeptName: deptMap.value[student.deptId] || ''
     }
   });
-  total.value = res.total;
+  groupRelList.value = allGroupRelList.value.slice();
+  total.value = groupRelList.value.length;
   loading.value = false;
 }
 
@@ -306,12 +302,22 @@ const reset = () => {
 /** 搜索按钮操作 */
 const handleQuery = () => {
   queryParams.value.pageNum = 1;
-  getList();
+  if (searchStudentName.value) {
+    groupRelList.value = allGroupRelList.value.filter(item => {
+      const student = studentMap.value[item.studentId] || {};
+      return student.name && student.name.includes(searchStudentName.value);
+    });
+    total.value = groupRelList.value.length;
+  } else {
+    groupRelList.value = allGroupRelList.value.slice();
+    total.value = groupRelList.value.length;
+  }
 }
 
 /** 重置按钮操作 */
 const resetQuery = () => {
   queryFormRef.value?.resetFields();
+  searchStudentName.value = '';
   handleQuery();
 }
 
@@ -431,3 +437,18 @@ onMounted(async () => {
   await getList();
 });
 </script>
+
+<style scoped>
+.header-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.group-title {
+  font-size: 18px;
+  font-weight: bold;
+}
+.search-form-wrapper {
+  /* 可根据需要微调宽度、间距 */
+}
+</style>
