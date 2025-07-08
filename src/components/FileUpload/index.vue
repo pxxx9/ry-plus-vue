@@ -172,6 +172,7 @@ const handleUploadSuccess = (res: any, file: UploadFile) => {
     fileUploadRef.value?.handleRemove(file);
     uploadedSuccessfully();
   }
+  emit('success', res, file); // 补充：上传成功后触发父组件的@success
 };
 
 // 删除文件
