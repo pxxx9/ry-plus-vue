@@ -4,8 +4,8 @@
       <div v-show="showSearch" class="mb-[10px]">
         <el-card shadow="hover">
           <el-form ref="queryFormRef" :model="queryParams" :inline="true">
-            <el-form-item label="文件名" prop="fileName">
-              <el-input v-model="queryParams.fileName" placeholder="请输入文件名" clearable @keyup.enter="handleQuery" />
+            <el-form-item label="原名" prop="originalName">
+              <el-input v-model="queryParams.originalName" placeholder="请输入原名" clearable @keyup.enter="handleQuery" />
             </el-form-item>
             <el-form-item>
               <el-button type="primary" icon="search" @click="handleQuery">搜索</el-button>
@@ -20,25 +20,11 @@
       <template #header>
         <el-row :gutter="10" class="mb8">
           <el-col :span="1.5">
-            <el-button v-hasPermi="['system:oss:upload']" type="primary" plain icon="Upload" @click="handleFile">上传文件</el-button>
+            <el-button type="primary" plain icon="Upload" @click="handleFile">上传文件</el-button>
           </el-col>
           <el-col :span="1.5">
-            <el-button v-hasPermi="['system:oss:remove']" type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete()">
-              删除
-            </el-button>
+            <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete()">删除</el-button>
           </el-col>
-          <el-col :span="1.5">
-            <el-button
-              v-hasPermi="['system:oss:edit']"
-              :type="previewListResource ? 'danger' : 'warning'"
-              plain
-              @click="handlePreviewListResource(!previewListResource)"
-              >预览开关 : {{ previewListResource ? '禁用' : '启用' }}</el-button
-            >
-          </el-col>
-          <!-- <el-col :span="1.5">
-            <el-button v-hasPermi="['system:ossConfig:list']" type="info" plain icon="Operation" @click="handleOssConfig">配置管理</el-button>
-          </el-col> -->
           <right-toolbar v-model:show-search="showSearch" @query-table="getList"></right-toolbar>
         </el-row>
       </template>
@@ -66,9 +52,9 @@
         <el-table-column label="服务商" align="center" prop="service" sortable="custom" />
         <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
           <template #default="scope">
-            <el-tooltip content="预览" placement="top">
+            <!-- <el-tooltip content="预览" placement="top">
               <el-button link type="primary" icon="View" @click="handlePreview(scope.row)">预览</el-button>
-            </el-tooltip>
+            </el-tooltip> -->
             <el-tooltip content="下载" placement="top">
               <el-button v-hasPermi="['system:oss:download']" link type="primary" icon="Download" @click="handleDownload(scope.row)"></el-button>
             </el-tooltip>
@@ -85,7 +71,7 @@
     <el-dialog v-model="dialog.visible" :title="dialog.title" width="500px" append-to-body>
       <el-form ref="ossFormRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="文件名">
-          <fileUpload v-if="type === 0" v-model="form.file" />
+          <fileUpload v-if="type === 0" v-model="form.file" :action="uploadAction" />
           <imageUpload v-if="type === 1" v-model="form.file" />
         </el-form-item>
       </el-form>
@@ -99,15 +85,15 @@
   </div>
 </template>
 
-<script setup name="Oss" lang="ts">
-import { listOss, delOss } from '@/api/system/oss';
+<script setup name="Document" lang="ts">
+import { listDocument, delDocument, downloadDocument, uploadDocument } from '@/api/material/document';
 import ImagePreview from '@/components/ImagePreview/index.vue';
-import { OssForm, OssQuery, OssVO } from '@/api/system/oss/types';
+import { DocumentVO } from '@/api/material/document/types';
 
 const router = useRouter();
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
 
-const ossList = ref<OssVO[]>([]);
+const ossList = ref<DocumentVO[]>([]);
 const showTable = ref(true);
 const buttonLoading = ref(false);
 const loading = ref(true);
@@ -158,9 +144,7 @@ const { queryParams, form, rules } = toRefs(data);
 /** 查询OSS对象存储列表 */
 const getList = async () => {
   loading.value = true;
-  const res = await proxy?.getConfigKey('sys.oss.previewListResource');
-  previewListResource.value = res?.data === undefined ? true : res.data === 'true';
-  const response = await listOss(proxy?.addDateRange(queryParams.value, dateRangeCreateTime.value, 'CreateTime'));
+  const response = await listDocument(queryParams.value);
   ossList.value = response.rows;
   total.value = response.total;
   loading.value = false;
@@ -196,8 +180,8 @@ function resetQuery() {
   handleQuery();
 }
 /** 选择条数  */
-function handleSelectionChange(selection: OssVO[]) {
-  ids.value = selection.map((item) => item.ossId);
+function handleSelectionChange(selection: DocumentVO[]) {
+  ids.value = selection.map((item) => item.documentId);
   single.value = selection.length != 1;
   multiple.value = !selection.length;
 }
@@ -270,8 +254,8 @@ const submitForm = () => {
   getList();
 };
 /** 下载按钮操作 */
-const handleDownload = (row: OssVO) => {
-  proxy?.$download.oss(row.ossId);
+const handleDownload = (row: DocumentVO) => {
+  proxy?.$download.oss(row.documentId, '/material/document/download/');
 };
 /** 预览开关按钮  */
 const handlePreviewListResource = async (preview: boolean) => {
@@ -286,22 +270,27 @@ const handlePreviewListResource = async (preview: boolean) => {
   }
 };
 /** 删除按钮操作 */
-const handleDelete = async (row?: OssVO) => {
-  const ossIds = row?.ossId || ids.value;
-  await proxy?.$modal.confirm('是否确认删除OSS对象存储编号为"' + ossIds + '"的数据项?');
+const handleDelete = async () => {
+  if (!ids.value.length) {
+    proxy?.$modal.msgWarning('请先选择要删除的文档');
+    return;
+  }
+  await proxy?.$modal.confirm('是否确认删除选中的文档？');
   loading.value = true;
-  await delOss(ossIds).finally(() => (loading.value = false));
+  await delDocument(ids.value).finally(() => (loading.value = false));
   await getList();
   proxy?.$modal.msgSuccess('删除成功');
 };
 
-const handlePreview = (row: OssVO) => {
+const handlePreview = (row: DocumentVO) => {
   if (row.url) {
-    window.open(row.url, '_blank');
+    window.open(encodeURI(row.url), '_blank');
   } else {
     proxy?.$modal.msgWarning('无可预览的文件链接');
   }
 };
+
+const uploadAction = import.meta.env.VITE_APP_BASE_API + '/material/document/upload';
 
 onMounted(() => {
   getList();

@@ -1,34 +1,28 @@
 export interface DocumentVO {
   /**
-   * 主键ID
+   * 对象存储主键
    */
-  id: string | number;
+  documentId: string | number;
 
   /**
-   * 文档名称
+   * 文件名
    */
   documentName: string;
 
   /**
-   * 文档路径
+   * 原名
    */
-  documentPath: string;
+  originalName: string;
 
   /**
-   * 文档大小
+   * 文件后缀名
    */
-  documentSize: string;
+  documentSuffix: string;
 
   /**
-   * 创建时间
+   * URL地址
    */
-  createTime: string;
-
-  /**
-   * 创建人
-   */
-  createBy: number;
-
+  url: string;
 }
 
 export interface DocumentForm extends BaseEntity {
