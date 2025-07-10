@@ -37,8 +37,8 @@
 
       <el-table v-loading="loading" border :data="paperList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
-        <el-table-column label="试卷ID" align="center" prop="id" v-if="true" />
-        <el-table-column label="试卷分类" align="center" prop="categoryId">
+        <el-table-column label="试卷ID" align="center" prop="id" v-if="false" />
+        <el-table-column label="试卷分类" align="center" prop="categoryId"> 
           <template #default="scope">
             <dict-tag :options="edu_type" :value="scope.row.categoryId"/>
           </template>
@@ -63,10 +63,10 @@
       <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
     </el-card>
     <!-- 添加或修改试卷对话框 -->
-    <el-dialog :title="dialog.title" v-model="dialog.visible" width="500px" append-to-body>
-      <el-form ref="paperFormRef" :model="form" :rules="rules" label-width="80px">
+    <el-dialog :title="dialog.title" v-model="dialog.visible" width="400px" append-to-body>
+      <el-form ref="paperFormRef" :model="form" :rules="rules" label-width="90px">
         <el-form-item label="试卷分类" prop="categoryId">
-          <el-select v-model="form.categoryId" placeholder="请选择试卷分类ID">
+          <el-select v-model="form.categoryId" placeholder="请选择试卷分类">
             <el-option
                 v-for="dict in edu_type"
                 :key="dict.value"
@@ -75,17 +75,14 @@
             ></el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="试卷名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入试卷名称" />
+        <el-form-item label="试卷名称" prop="name" required>
+          <el-input v-model="form.name" placeholder="请填写试卷名称" />
         </el-form-item>
-        <el-form-item label="试题数" prop="questionCount">
-          <el-input v-model="form.questionCount" placeholder="请输入试题数" />
-        </el-form-item>
-        <el-form-item label="总分" prop="totalScore">
-          <el-input v-model="form.totalScore" placeholder="请输入总分" />
-        </el-form-item>
-        <el-form-item label="及格分" prop="passScore">
-          <el-input v-model="form.passScore" placeholder="请输入及格分" />
+        <el-form-item label="试卷类型" prop="type" required>
+          <el-radio-group v-model="form.type">
+            <el-radio :label="1">固定试卷</el-radio>
+            <el-radio :label="2">随机组卷</el-radio>
+          </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -122,11 +119,12 @@ const dialog = reactive<DialogOption>({
   title: ''
 });
 
+// 保证form结构有type字段
 const initFormData: PaperForm = {
   id: undefined,
   categoryId: undefined,
   name: undefined,
-  type: undefined,
+  type: 1,
   questionCount: undefined,
   totalScore: undefined,
   passScore: undefined,
