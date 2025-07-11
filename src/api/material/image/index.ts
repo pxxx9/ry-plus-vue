@@ -53,11 +53,12 @@ export const updateImage = (data: ImageForm) => {
 
 /**
  * 删除图片
- * @param id
+ * @param imageIds 图片ID串
  */
-export const delImage = (id: string | number | Array<string | number>) => {
+export const delImage = (imageIds: string | number | Array<string | number>) => {
+  let ids = Array.isArray(imageIds) ? imageIds.join(',') : imageIds;
   return request({
-    url: '/material/image/' + id,
+    url: '/material/image/' + ids,
     method: 'delete'
   });
 };

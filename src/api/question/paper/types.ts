@@ -12,12 +12,12 @@ export interface PaperVO {
   /**
    * 试卷名称
    */
-  name: string;
+  title: string;
 
   /**
    * 试卷类型
    */
-  type: number;
+  combinationMode?: number;
 
   /**
    * 试题数
@@ -27,13 +27,14 @@ export interface PaperVO {
   /**
    * 总分
    */
-  totalScore: number;
+  score: number;
 
   /**
    * 及格分
    */
   passScore: number;
 
+  extra?: string;
 }
 
 export interface PaperForm extends BaseEntity {
@@ -50,12 +51,12 @@ export interface PaperForm extends BaseEntity {
   /**
    * 试卷名称
    */
-  name?: string;
+  title?: string;
 
   /**
    * 试卷类型
    */
-  type?: number;
+  combinationMode?: number;
 
   /**
    * 试题数
@@ -65,13 +66,14 @@ export interface PaperForm extends BaseEntity {
   /**
    * 总分
    */
-  totalScore?: number;
+  score?: number;
 
   /**
    * 及格分
    */
   passScore?: number;
 
+  extra?: string;
 }
 
 export interface PaperQuery extends PageQuery {
@@ -79,12 +81,17 @@ export interface PaperQuery extends PageQuery {
   /**
    * 试卷名称
    */
-  name?: string;
+  title?: string;
 
     /**
      * 日期范围参数
      */
     params?: any;
+
+  /**
+   * 试卷类型
+   */
+  combinationMode?: number;
 }
 
 

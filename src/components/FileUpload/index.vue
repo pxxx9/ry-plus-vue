@@ -3,7 +3,7 @@
     <el-upload
       ref="fileUploadRef"
       multiple
-      :action="uploadFileUrl"
+      :action="props.action || uploadFileUrl"
       :before-upload="handleBeforeUpload"
       :file-list="fileList"
       :limit="limit"
@@ -63,7 +63,12 @@ const props = defineProps({
   // 是否显示提示
   isShowTip: propTypes.bool.def(true),
   // 禁用组件（仅查看文件）
-  disabled: propTypes.bool.def(false)
+  disabled: propTypes.bool.def(false),
+  // 新增：上传action
+  action: {
+    type: String,
+    default: ''
+  }
 });
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;

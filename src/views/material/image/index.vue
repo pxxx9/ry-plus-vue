@@ -10,23 +10,6 @@
             <el-form-item label="原名" prop="originalName">
               <el-input v-model="queryParams.originalName" placeholder="请输入原名" clearable @keyup.enter="handleQuery" />
             </el-form-item>
-            <!-- <el-form-item label="文件后缀" prop="fileSuffix">
-              <el-input v-model="queryParams.fileSuffix" placeholder="请输入文件后缀" clearable @keyup.enter="handleQuery" />
-            </el-form-item>
-            <el-form-item label="创建时间" style="width: 308px">
-              <el-date-picker
-                v-model="dateRangeCreateTime"
-                value-format="YYYY-MM-DD HH:mm:ss"
-                type="daterange"
-                range-separator="-"
-                start-placeholder="开始日期"
-                end-placeholder="结束日期"
-                :default-time="[new Date(2000, 1, 1, 0, 0, 0), new Date(2000, 1, 1, 23, 59, 59)]"
-              ></el-date-picker>
-            </el-form-item>
-            <el-form-item label="服务商" prop="service">
-              <el-input v-model="queryParams.service" placeholder="请输入服务商" clearable @keyup.enter="handleQuery" />
-            </el-form-item> --> 
             <el-form-item>
               <el-button type="primary" icon="search" @click="handleQuery">搜索</el-button>
               <el-button icon="Refresh" @click="resetQuery">重置</el-button>
@@ -39,79 +22,50 @@
     <el-card shadow="hover">
       <template #header>
         <el-row :gutter="10" class="mb8">
-          <!-- <el-col :span="1.5">
-            <el-button v-hasPermi="['system:oss:upload']" type="primary" plain icon="Upload" @click="handleFile">上传文件</el-button>
-          </el-col> -->
           <el-col :span="1.5">
-            <el-button v-hasPermi="['system:oss:upload']" type="primary" plain icon="Upload" @click="handleImage">上传图片</el-button>
+            <el-upload
+              :action="uploadFileUrl"
+              :before-upload="handleBeforeUpload"
+              :headers="headers"
+              :data="{ type: 'image' }"
+              :show-file-list="false"
+              :on-success="handleUploadSuccess"
+              :on-error="handleUploadError"
+              accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,image/bmp,image/svg+xml"
+              multiple
+            >
+              <el-button v-hasPermi="['system:oss:upload']" type="primary" plain icon="Upload">上传图片</el-button>
+            </el-upload>
           </el-col>
           <el-col :span="1.5">
             <el-button v-hasPermi="['system:oss:remove']" type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete()">
               删除
             </el-button>
           </el-col>
-          <el-col :span="1.5">
-            <el-button
-              v-hasPermi="['system:oss:edit']"
-              :type="previewListResource ? 'danger' : 'warning'"
-              plain
-              @click="handlePreviewListResource(!previewListResource)"
-              >预览开关 : {{ previewListResource ? '禁用' : '启用' }}</el-button
-            >
-          </el-col>
-          <!-- <el-col :span="1.5">
-            <el-button v-hasPermi="['system:ossConfig:list']" type="info" plain icon="Operation" @click="handleOssConfig">配置管理</el-button>
-          </el-col> -->
           <right-toolbar v-model:show-search="showSearch" @query-table="getList"></right-toolbar>
         </el-row>
       </template>
-
-      <el-table
-        v-if="showTable"
-        v-loading="loading"
-        :data="ossList"
-        border
-        :header-cell-class-name="handleHeaderClass"
-        @selection-change="handleSelectionChange"
-        @header-click="handleHeaderCLick"
-      >
-        <el-table-column type="selection" width="55" align="center" />
-        <el-table-column v-if="false" label="对象存储主键" align="center" prop="ossId" />
-        <!-- <el-table-column label="文件名" align="center" prop="fileName" /> -->
-        <el-table-column label="原名" align="center" prop="originalName" />
-        <!-- <el-table-column label="文件后缀" align="center" prop="fileSuffix" /> -->
-        <el-table-column label="文件展示" align="center" prop="url">
-          <template #default="scope">
+      <div class="image-grid">
+        <template v-for="item in ossList" :key="item.imageId">
+          <div class="image-item">
+            <el-checkbox
+              class="image-checkbox"
+              :value="item.imageId"
+              v-model="ids"
+              @change="handleSelectionChangeByCheckbox"
+            ></el-checkbox>
             <ImagePreview
-              v-if="previewListResource && checkFileSuffix(scope.row.fileSuffix)"
+              v-if="checkFileSuffix(item.originalName)"
               :width="100"
               :height="100"
-              :src="scope.row.url"
-              :preview-src-list="[scope.row.url]"
+              :src="item.url || item.imageNameUrl"
+              :preview-src-list="[item.url || item.imageNameUrl]"
             />
-            <span v-if="!checkFileSuffix(scope.row.fileSuffix) || !previewListResource" v-text="scope.row.url" />
-          </template>
-        </el-table-column>
-        <el-table-column label="创建时间" align="center" prop="createTime" width="180" sortable="custom">
-          <template #default="scope">
-            <span>{{ proxy.parseTime(scope.row.createTime, '{y}-{m}-{d}') }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="上传人" align="center" prop="createByName" />
-        <!-- <el-table-column label="服务商" align="center" prop="service" sortable="custom" /> -->
-        <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
-          <template #default="scope">
-            <el-tooltip content="下载" placement="top">
-              <el-button v-hasPermi="['system:oss:download']" link type="primary" icon="Download" @click="handleDownload(scope.row)"></el-button>
-            </el-tooltip>
-            <el-tooltip content="删除" placement="top">
-              <el-button v-hasPermi="['system:oss:remove']" link type="primary" icon="Delete" @click="handleDelete(scope.row)"></el-button>
-            </el-tooltip>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <pagination v-show="total > 0" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" :total="total" @pagination="getList" />
+            <span v-else>{{ item.url || item.imageNameUrl }}</span>
+            <div class="image-name">{{ item.originalName }}</div>
+          </div>
+        </template>
+      </div>
     </el-card>
     <!-- 添加或修改OSS对象存储对话框 -->
     <el-dialog v-model="dialog.visible" :title="dialog.title" width="500px" append-to-body>
@@ -132,14 +86,16 @@
 </template>
 
 <script setup name="Oss" lang="ts">
-import { listOss, delOss } from '@/api/system/oss';
+import { listImage, delImage } from '@/api/material/image';
+import { globalHeaders } from '@/utils/request';
+import { ImageVO } from '@/api/material/image/types';
+// 1. 引入ImagePreview组件
 import ImagePreview from '@/components/ImagePreview/index.vue';
-import { OssForm, OssQuery, OssVO } from '@/api/system/oss/types';
 
 const router = useRouter();
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
 
-const ossList = ref<OssVO[]>([]);
+const ossList = ref<ImageVO[]>([]);
 const showTable = ref(true);
 const buttonLoading = ref(false);
 const loading = ref(true);
@@ -151,6 +107,8 @@ const total = ref(0);
 const type = ref(0);
 const previewListResource = ref(true);
 const dateRangeCreateTime = ref<[DateModelType, DateModelType]>(['', '']);
+const uploadFileUrl = ref(import.meta.env.VITE_APP_BASE_API + '/material/image/upload');
+const headers = ref(globalHeaders());
 
 const dialog = reactive<DialogOption>({
   visible: false,
@@ -190,18 +148,17 @@ const { queryParams, form, rules } = toRefs(data);
 /** 查询OSS对象存储列表 */
 const getList = async () => {
   loading.value = true;
-  const res = await proxy?.getConfigKey('sys.oss.previewListResource');
-  previewListResource.value = res?.data === undefined ? true : res.data === 'true';
-  const response = await listOss(proxy?.addDateRange(queryParams.value, dateRangeCreateTime.value, 'CreateTime'));
+  const response = await listImage(queryParams.value);
   ossList.value = response.rows;
   total.value = response.total;
   loading.value = false;
   showTable.value = true;
 };
-function checkFileSuffix(fileSuffix: string | string[]) {
-  const arr = ['.png', '.jpg', '.jpeg'];
-  const suffixArray = Array.isArray(fileSuffix) ? fileSuffix : [fileSuffix];
-  return suffixArray.some((suffix) => arr.includes(suffix.toLowerCase()));
+// 2. 添加checkFileSuffix方法
+function checkFileSuffix(fileName: string) {
+  const arr = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
+  if (!fileName) return false;
+  return arr.some(suffix => fileName.toLowerCase().endsWith(suffix));
 }
 /** 取消按钮 */
 function cancel() {
@@ -228,10 +185,15 @@ function resetQuery() {
   handleQuery();
 }
 /** 选择条数  */
-function handleSelectionChange(selection: OssVO[]) {
-  ids.value = selection.map((item) => item.ossId);
+function handleSelectionChange(selection: ImageVO[]) {
+  ids.value = selection.map((item) => item.imageId);
   single.value = selection.length != 1;
   multiple.value = !selection.length;
+}
+/** 选择条数  */
+function handleSelectionChangeByCheckbox() {
+  single.value = ids.value.length !== 1;
+  multiple.value = !ids.value.length;
 }
 /** 设置列的排序为我们自定义的排序 */
 const handleHeaderClass = ({ column }: any): any => {
@@ -289,12 +251,48 @@ const handleFile = () => {
   dialog.visible = true;
   dialog.title = '上传文件';
 };
+const imageTypes = [
+  'image/png', 'image/jpeg', 'image/jpg', 'image/gif',
+  'image/webp', 'image/bmp', 'image/svg+xml'
+];
+
+const handleBeforeUpload = (file: File) => {
+  if (!imageTypes.includes(file.type)) {
+    proxy?.$modal.msgError('请选择图片文件（png/jpg/jpeg/gif/webp/bmp/svg）');
+    return false;
+  }
+  return true;
+};
+const handleUploadSuccess = () => {
+  proxy?.$modal.msgSuccess('上传成功');
+  getList();
+};
+const handleUploadError = () => {
+  proxy?.$modal.msgError('上传失败');
+};
 /** 图片按钮操作 */
 const handleImage = () => {
-  reset();
-  type.value = 1;
-  dialog.visible = true;
-  dialog.title = '上传图片';
+  // 触发文件选择
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = imageTypes.join(',');
+  input.multiple = true;
+  input.onchange = async (e: Event) => {
+    const files = Array.from((e.target as HTMLInputElement).files ?? []);
+    for (const file of files) {
+      if (!imageTypes.includes(file.type)) {
+        proxy?.$modal.msgError('请选择图片文件（png/jpg/jpeg/gif/webp/bmp/svg）');
+        continue;
+      }
+      const formData = new FormData();
+      formData.append('file', file as Blob);
+      formData.append('type', 'image'); // 携带类型
+      // 这里假设有uploadOssImage接口
+      // await uploadOssImage(formData); // This line was removed as per the edit hint.
+    }
+    getList();
+  };
+  input.click();
 };
 /** 提交按钮 */
 const submitForm = () => {
@@ -302,8 +300,8 @@ const submitForm = () => {
   getList();
 };
 /** 下载按钮操作 */
-const handleDownload = (row: OssVO) => {
-  proxy?.$download.oss(row.ossId);
+const handleDownload = (row: ImageVO) => {
+  window.open(import.meta.env.VITE_APP_BASE_API + '/material/image/download/' + row.imageId, '_blank');
 };
 /** 预览开关按钮  */
 const handlePreviewListResource = async (preview: boolean) => {
@@ -318,11 +316,14 @@ const handlePreviewListResource = async (preview: boolean) => {
   }
 };
 /** 删除按钮操作 */
-const handleDelete = async (row?: OssVO) => {
-  const ossIds = row?.ossId || ids.value;
-  await proxy?.$modal.confirm('是否确认删除OSS对象存储编号为"' + ossIds + '"的数据项?');
+const handleDelete = async () => {
+  if (!ids.value.length) {
+    proxy?.$modal.msgWarning('请先选择要删除的图片');
+    return;
+  }
+  await proxy?.$modal.confirm('是否确认删除选中的图片？');
   loading.value = true;
-  await delOss(ossIds).finally(() => (loading.value = false));
+  await delImage(ids.value).finally(() => (loading.value = false));
   await getList();
   proxy?.$modal.msgSuccess('删除成功');
 };
@@ -331,3 +332,40 @@ onMounted(() => {
   getList();
 });
 </script>
+
+<style scoped>
+.image-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.image-item {
+  position: relative;
+  width: 160px;
+  text-align: center;
+  cursor: pointer;
+}
+.image-checkbox {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  z-index: 2;
+}
+.image-thumb {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #f5f5f5;
+}
+.image-name {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #333;
+  word-break: break-all;
+}
+.image-delete-btn {
+  margin-top: 6px;
+  width: 80px;
+}
+</style>

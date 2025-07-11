@@ -1,14 +1,11 @@
 import request from '@/utils/request';
 import { AxiosPromise } from 'axios';
-import { DocumentVO, DocumentForm, DocumentQuery } from '@/api/material/document/types';
+import { DocumentVO } from '@/api/material/document/types';
 
 /**
  * 查询文档列表
- * @param query
- * @returns {*}
  */
-
-export const listDocument = (query?: DocumentQuery): AxiosPromise<DocumentVO[]> => {
+export const listDocument = (query?: any): AxiosPromise<any> => {
   return request({
     url: '/material/document/list',
     method: 'get',
@@ -17,47 +14,42 @@ export const listDocument = (query?: DocumentQuery): AxiosPromise<DocumentVO[]> 
 };
 
 /**
- * 查询文档详细
- * @param id
+ * 查询文档基于ID串
  */
-export const getDocument = (id: string | number): AxiosPromise<DocumentVO> => {
+export const listDocumentByIds = (documentIds: Array<string|number>): AxiosPromise<DocumentVO[]> => {
   return request({
-    url: '/material/document/' + id,
+    url: '/material/document/listByIds/' + documentIds.join(','),
     method: 'get'
   });
 };
 
 /**
- * 新增文档
- * @param data
+ * 上传文档
  */
-export const addDocument = (data: DocumentForm) => {
+export const uploadDocument = (file: File): Promise<any> => {
+  const formData = new FormData();
+  formData.append('file', file);
   return request({
-    url: '/material/document',
+    url: '/material/document/upload',
     method: 'post',
-    data: data
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' }
   });
 };
 
 /**
- * 修改文档
- * @param data
+ * 下载文档
  */
-export const updateDocument = (data: DocumentForm) => {
-  return request({
-    url: '/material/document',
-    method: 'put',
-    data: data
-  });
+export const downloadDocument = (documentId: string|number) => {
+  window.open('/material/document/download/' + documentId, '_blank');
 };
 
 /**
  * 删除文档
- * @param id
  */
-export const delDocument = (id: string | number | Array<string | number>) => {
+export const delDocument = (documentIds: Array<string|number>) => {
   return request({
-    url: '/material/document/' + id,
+    url: '/material/document/' + documentIds.join(','),
     method: 'delete'
   });
 };

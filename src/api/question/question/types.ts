@@ -24,6 +24,10 @@ export interface QuestionVO {
    */
   correctAnswer: string;
 
+  /**
+   * 题库ID
+   */
+  bankId: string | number;
 }
 
 export interface QuestionForm extends BaseEntity {
@@ -52,19 +56,27 @@ export interface QuestionForm extends BaseEntity {
    */
   correctAnswer?: string;
 
+  /**
+   * 题库ID
+   */
+  bankId?: string | number;
 }
 
 export interface QuestionQuery extends PageQuery {
-
   /**
    * 题目内容
    */
   questionContent?: string;
 
-    /**
-     * 日期范围参数
-     */
-    params?: any;
+  /**
+   * 题库ID
+   */
+  bankId?: string | number;
+
+  /**
+   * 日期范围参数
+   */
+  params?: any;
 }
 
 
