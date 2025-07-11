@@ -84,6 +84,7 @@
 import { listBank, getBank, delBank, addBank, updateBank } from '@/api/question/bank';
 import { BankVO, BankQuery, BankForm } from '@/api/question/bank/types';
 import { useRouter } from 'vue-router';
+import { onMounted, onActivated } from 'vue';
 const router = useRouter();
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
@@ -232,6 +233,10 @@ function openQuestionBank(row) {
 
 onMounted(() => {
   console.log('onMounted called');
+  getList();
+});
+onActivated(() => {
+  console.log('onActivated called');
   getList();
 });
 </script>

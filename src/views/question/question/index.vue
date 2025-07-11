@@ -1,5 +1,11 @@
 <template>
   <div class="p-2">
+    <!-- 返回题库按钮 -->
+    <el-row class="mb-2">
+      <el-col>
+        <el-button type="primary" icon="Back" @click="goBackToBank">返回题库</el-button>
+      </el-col>
+    </el-row>
     <transition :enter-active-class="proxy?.animate.searchAnimate.enter" :leave-active-class="proxy?.animate.searchAnimate.leave">
       <div v-show="showSearch" class="mb-[10px]">
         <el-card shadow="hover">
@@ -193,10 +199,11 @@
 import { listQuestion, getQuestion, delQuestion, addQuestion, updateQuestion } from '@/api/question/question';
 import { QuestionVO, QuestionQuery, QuestionForm } from '@/api/question/question/types';
 import { ref, reactive, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { computed } from 'vue';
 
 const route = useRoute();
+const router = useRouter();
 const bankId = computed(() => route.query.bankId ? route.query.bankId : undefined);
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
@@ -483,6 +490,11 @@ const handleExport = () => {
   proxy?.download('question/question/export', {
     ...queryParams
   }, `question_${new Date().getTime()}.xlsx`)
+}
+
+function goBackToBank() {
+  console.log('返回题库');
+  router.push('/question/bank');
 }
 
 onMounted(() => {
