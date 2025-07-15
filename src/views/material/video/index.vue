@@ -7,6 +7,18 @@
             <el-form-item label="视频名称" prop="videoName">
               <el-input v-model="queryParams.videoName" placeholder="请输入视频名称" clearable @keyup.enter="handleQuery" />
             </el-form-item>
+            <el-form-item label="分类" prop="categoryId">
+              <el-tree-select
+                v-model="queryParams.categoryId"
+                :data="categoryOptions"
+                :props="{ label: 'categoryName', value: 'categoryId', children: 'children' }"
+                placeholder="请选择分类"
+                check-strictly
+                filterable
+                clearable
+                style="width: 180px"
+              />
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
               <el-button icon="Refresh" @click="resetQuery">重置</el-button>
@@ -37,7 +49,7 @@
 
       <el-table v-loading="loading" border :data="videoList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
-        <el-table-column label="主键ID" align="center" prop="id" v-if="true" />
+        <el-table-column label="主键ID" align="center" prop="id" v-if="false" />
         <el-table-column label="视频名称" align="center" prop="videoName" />
         <el-table-column label="视频路径" align="center" prop="videoPath">
           <template #default="scope">
@@ -46,7 +58,11 @@
           </template>
         </el-table-column>
         <el-table-column label="视频时长" align="center" prop="videoDuration" />
-        <el-table-column label="分类" align="center" prop="categoryId" />
+        <el-table-column label="分类" align="center" prop="categoryId">
+          <template #default="scope">
+            {{ categoryMap[scope.row.categoryId] || '--' }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
           <template #default="scope">
             <el-tooltip content="修改" placement="top">
@@ -133,6 +149,20 @@ const queryFormRef = ref<ElFormInstance>();
 const videoFormRef = ref<ElFormInstance>();
 
 const categoryOptions = ref<any[]>([]);
+const categoryMap = ref<{ [key: string]: string }>({});
+function buildCategoryMap(list: any[]) {
+  const map: { [key: string]: string } = {};
+  function traverse(arr: any[]) {
+    arr.forEach(item => {
+      map[item.categoryId] = item.categoryName;
+      if (item.children && item.children.length) {
+        traverse(item.children);
+      }
+    });
+  }
+  traverse(list);
+  return map;
+}
 
 const dialog = reactive<DialogOption>({
   visible: false,
@@ -203,11 +233,14 @@ function listToTree(list, parentId = 0) {
 /** 查询分类下拉列表（树结构） */
 const getCategoryOptions = async () => {
   const res = await listCategory();
+  let treeData = [];
   if (res.data && Array.isArray(res.data) && res.data.length > 0 && !res.data[0].children) {
-    categoryOptions.value = listToTree(res.data);
+    treeData = listToTree(res.data);
   } else {
-    categoryOptions.value = res.data || [];
+    treeData = res.data || [];
   }
+  categoryOptions.value = treeData;
+  categoryMap.value = buildCategoryMap(treeData);
 }
 
 /** OSS上传视频，只允许视频类型，上传后自动获取视频时长 */
@@ -343,6 +376,7 @@ const handleExport = () => {
 }
 
 onMounted(() => {
+  getCategoryOptions();
   getList();
 });
 </script>

@@ -10,23 +10,14 @@ export interface ImageVO {
   imageName: string;
 
   /**
-   * 图片路径
+   * URL地址
    */
-  imagePath: string;
+  url: string;
 
   /**
-   * 图片路径Url
+   * 分类
    */
-  imagePathUrl: string;
-  /**
-   * 创建时间
-   */
-  createTime: string;
-
-  /**
-   * 创建人
-   */
-  createBy: number;
+  categoryId: string | number;
 
 }
 
@@ -42,9 +33,14 @@ export interface ImageForm extends BaseEntity {
   imageName?: string;
 
   /**
-   * 图片路径
+   * URL地址
    */
-  imagePath?: string;
+  url?: string;
+
+  /**
+   * 分类
+   */
+  categoryId?: string | number;
 
 }
 
@@ -56,9 +52,9 @@ export interface ImageQuery extends PageQuery {
   imageName?: string;
 
   /**
-   * 图片路径
+   * 分类
    */
-  imagePath?: string;
+  categoryId?: string | number;
 
     /**
      * 日期范围参数

@@ -1,11 +1,14 @@
 import request from '@/utils/request';
 import { AxiosPromise } from 'axios';
-import { DocumentVO } from '@/api/material/document/types';
+import { DocumentVO, DocumentForm, DocumentQuery } from '@/api/material/document/types';
 
 /**
  * 查询文档列表
+ * @param query
+ * @returns {*}
  */
-export const listDocument = (query?: any): AxiosPromise<any> => {
+
+export const listDocument = (query?: DocumentQuery): AxiosPromise<DocumentVO[]> => {
   return request({
     url: '/material/document/list',
     method: 'get',
@@ -14,42 +17,47 @@ export const listDocument = (query?: any): AxiosPromise<any> => {
 };
 
 /**
- * 查询文档基于ID串
+ * 查询文档详细
+ * @param id
  */
-export const listDocumentByIds = (documentIds: Array<string|number>): AxiosPromise<DocumentVO[]> => {
+export const getDocument = (id: string | number): AxiosPromise<DocumentVO> => {
   return request({
-    url: '/material/document/listByIds/' + documentIds.join(','),
+    url: '/material/document/' + id,
     method: 'get'
   });
 };
 
 /**
- * 上传文档
+ * 新增文档
+ * @param data
  */
-export const uploadDocument = (file: File): Promise<any> => {
-  const formData = new FormData();
-  formData.append('file', file);
+export const addDocument = (data: DocumentForm) => {
   return request({
-    url: '/material/document/upload',
+    url: '/material/document',
     method: 'post',
-    data: formData,
-    headers: { 'Content-Type': 'multipart/form-data' }
+    data: data
   });
 };
 
 /**
- * 下载文档
+ * 修改文档
+ * @param data
  */
-export const downloadDocument = (documentId: string|number) => {
-  window.open('/material/document/download/' + documentId, '_blank');
+export const updateDocument = (data: DocumentForm) => {
+  return request({
+    url: '/material/document',
+    method: 'put',
+    data: data
+  });
 };
 
 /**
  * 删除文档
+ * @param id
  */
-export const delDocument = (documentIds: Array<string|number>) => {
+export const delDocument = (id: string | number | Array<string | number>) => {
   return request({
-    url: '/material/document/' + documentIds.join(','),
+    url: '/material/document/' + id,
     method: 'delete'
   });
 };

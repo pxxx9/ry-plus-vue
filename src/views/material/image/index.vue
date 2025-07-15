@@ -4,14 +4,23 @@
       <div v-show="showSearch" class="mb-[10px]">
         <el-card shadow="hover">
           <el-form ref="queryFormRef" :model="queryParams" :inline="true">
-            <!-- <el-form-item label="文件名" prop="fileName">
-              <el-input v-model="queryParams.fileName" placeholder="请输入文件名" clearable @keyup.enter="handleQuery" />
-            </el-form-item> -->
-            <el-form-item label="原名" prop="originalName">
-              <el-input v-model="queryParams.originalName" placeholder="请输入原名" clearable @keyup.enter="handleQuery" />
+            <el-form-item label="图片名称" prop="imageName">
+              <el-input v-model="queryParams.imageName" placeholder="请输入图片名称" clearable @keyup.enter="handleQuery" />
+            </el-form-item>
+            <el-form-item label="分类" prop="categoryId">
+              <el-tree-select
+                v-model="queryParams.categoryId"
+                :data="categoryOptions"
+                :props="{ label: 'categoryName', value: 'categoryId', children: 'children' }"
+                placeholder="请选择分类"
+                check-strictly
+                filterable
+                clearable
+                style="width: 180px"
+              />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" icon="search" @click="handleQuery">搜索</el-button>
+              <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
               <el-button icon="Refresh" @click="resetQuery">重置</el-button>
             </el-form-item>
           </el-form>
@@ -19,61 +28,92 @@
       </div>
     </transition>
 
-    <el-card shadow="hover">
+    <el-card shadow="never">
       <template #header>
         <el-row :gutter="10" class="mb8">
           <el-col :span="1.5">
-            <el-upload
-              :action="uploadFileUrl"
-              :before-upload="handleBeforeUpload"
-              :headers="headers"
-              :data="{ type: 'image' }"
-              :show-file-list="false"
-              :on-success="handleUploadSuccess"
-              :on-error="handleUploadError"
-              accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,image/bmp,image/svg+xml"
-              multiple
-            >
-              <el-button v-hasPermi="['system:oss:upload']" type="primary" plain icon="Upload">上传图片</el-button>
-            </el-upload>
+            <el-button type="primary" plain icon="Plus" @click="handleAdd" v-hasPermi="['material:image:add']">新增</el-button>
           </el-col>
           <el-col :span="1.5">
-            <el-button v-hasPermi="['system:oss:remove']" type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete()">
-              删除
-            </el-button>
+            <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate()" v-hasPermi="['material:image:edit']">修改</el-button>
           </el-col>
-          <right-toolbar v-model:show-search="showSearch" @query-table="getList"></right-toolbar>
+          <el-col :span="1.5">
+            <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete()" v-hasPermi="['material:image:remove']">删除</el-button>
+          </el-col>
+          <el-col :span="1.5">
+            <el-button type="warning" plain icon="Download" @click="handleExport" v-hasPermi="['material:image:export']">导出</el-button>
+          </el-col>
+          <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
         </el-row>
       </template>
-      <div class="image-grid">
-        <template v-for="item in ossList" :key="item.imageId">
-          <div class="image-item">
-            <el-checkbox
-              class="image-checkbox"
-              :value="item.imageId"
-              v-model="ids"
-              @change="handleSelectionChangeByCheckbox"
-            ></el-checkbox>
-            <ImagePreview
-              v-if="checkFileSuffix(item.originalName)"
-              :width="100"
-              :height="100"
-              :src="item.url || item.imageNameUrl"
-              :preview-src-list="[item.url || item.imageNameUrl]"
-            />
-            <span v-else>{{ item.url || item.imageNameUrl }}</span>
-            <div class="image-name">{{ item.originalName }}</div>
-          </div>
-        </template>
-      </div>
+
+      <el-table v-loading="loading" border :data="imageList" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" align="center" />
+        <el-table-column label="主键ID" align="center" prop="id" v-if="false" />
+        <el-table-column label="图片名称" align="center" prop="imageName" />
+        <el-table-column label="图片展示" align="center" prop="url">
+          <template #default="scope">
+            <ImagePreview :src="scope.row.url" :width="100" :height="100" />
+          </template>
+        </el-table-column>
+        <el-table-column label="分类" align="center" prop="categoryId">
+          <template #default="scope">
+            {{ categoryMap[scope.row.categoryId] || '--' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+          <template #default="scope">
+            <el-tooltip content="修改" placement="top">
+              <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['material:image:edit']"></el-button>
+            </el-tooltip>
+            <el-tooltip content="删除" placement="top">
+              <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['material:image:remove']"></el-button>
+            </el-tooltip>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
     </el-card>
-    <!-- 添加或修改OSS对象存储对话框 -->
-    <el-dialog v-model="dialog.visible" :title="dialog.title" width="500px" append-to-body>
-      <el-form ref="ossFormRef" :model="form" :rules="rules" label-width="80px">
-        <el-form-item label="文件名">
-          <fileUpload v-if="type === 0" v-model="form.file" />
-          <imageUpload v-if="type === 1" v-model="form.file" />
+    <!-- 添加或修改图片对话框 -->
+    <el-dialog :title="dialog.title" v-model="dialog.visible" width="500px" append-to-body>
+      <el-form ref="imageFormRef" :model="form" :rules="rules" label-width="80px">
+        <el-form-item label="分类" prop="categoryId">
+          <el-tree-select
+            v-model="form.categoryId"
+            :data="categoryOptions"
+            :props="{ label: 'categoryName', value: 'categoryId', children: 'children' }"
+            placeholder="请选择分类"
+            check-strictly
+            filterable
+            style="width: 100%"
+          />
         </el-form-item>
+        <el-form-item label="图片名称" prop="imageName">
+          <el-input v-model="form.imageName" placeholder="请输入图片名称" />
+        </el-form-item>
+        <el-form-item label="图片上传" prop="url">
+          <el-upload
+            class="image-upload-drag"
+            drag
+            :show-file-list="false"
+            :before-upload="beforeUpload"
+            :http-request="uploadImage"
+            accept="image/*"
+            style="width:100%"
+            v-if="!form.imageFile"
+          >
+            <div style="text-align:center;padding:15px 0;">
+              <el-icon style="font-size:38px;margin-bottom:12px;"><folder /></el-icon>
+              <div style="font-size:18px;">选择图片文件</div>
+            </div>
+          </el-upload>
+          <div v-else style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid #eee;border-radius:6px;">
+            <span>{{ form.imageFile.fileName }}</span>
+            <el-button type="text" style="color: #ff4d4f" @click="removeImageFile">删除</el-button>
+          </div>
+        </el-form-item>
+        
       </el-form>
       <template #footer>
         <div class="dialog-footer">
@@ -85,18 +125,16 @@
   </div>
 </template>
 
-<script setup name="Oss" lang="ts">
-import { listImage, delImage } from '@/api/material/image';
-import { globalHeaders } from '@/utils/request';
-import { ImageVO } from '@/api/material/image/types';
-// 1. 引入ImagePreview组件
+<script setup name="Image" lang="ts">
+import { listImage, getImage, delImage, addImage, updateImage } from '@/api/material/image';
+import { ImageVO, ImageQuery, ImageForm } from '@/api/material/image/types';
+import { uploadFile, delOss } from '@/api/system/oss/index';
 import ImagePreview from '@/components/ImagePreview/index.vue';
+import { listCategory } from '@/api/category/category/index';
 
-const router = useRouter();
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
 
-const ossList = ref<ImageVO[]>([]);
-const showTable = ref(true);
+const imageList = ref<ImageVO[]>([]);
 const buttonLoading = ref(false);
 const loading = ref(true);
 const showSearch = ref(true);
@@ -104,268 +142,210 @@ const ids = ref<Array<string | number>>([]);
 const single = ref(true);
 const multiple = ref(true);
 const total = ref(0);
-const type = ref(0);
-const previewListResource = ref(true);
-const dateRangeCreateTime = ref<[DateModelType, DateModelType]>(['', '']);
-const uploadFileUrl = ref(import.meta.env.VITE_APP_BASE_API + '/material/image/upload');
-const headers = ref(globalHeaders());
+
+const queryFormRef = ref<ElFormInstance>();
+const imageFormRef = ref<ElFormInstance>();
 
 const dialog = reactive<DialogOption>({
   visible: false,
   title: ''
 });
 
-// 默认排序
-const defaultSort = ref({ prop: 'createTime', order: 'ascending' });
-
-const ossFormRef = ref<ElFormInstance>();
-const queryFormRef = ref<ElFormInstance>();
-
-const initFormData = {
-  file: undefined
-};
-const data = reactive<PageData<OssForm, OssQuery>>({
+interface ImageFileInfo {
+  url: string;
+  fileName: string;
+  ossId: string;
+}
+interface ImageFormEx extends ImageForm {
+  imageFile?: ImageFileInfo | null;
+}
+const initFormData: ImageFormEx = {
+  id: undefined,
+  imageName: undefined,
+  url: undefined,
+  categoryId: undefined,
+  imageFile: null
+}
+const data = reactive<PageData<ImageFormEx, ImageQuery>>({
   form: { ...initFormData },
-  // 查询参数
   queryParams: {
     pageNum: 1,
     pageSize: 10,
-    fileName: '',
-    originalName: '',
-    fileSuffix: '',
-    createTime: '',
-    service: '',
-    orderByColumn: defaultSort.value.prop,
-    isAsc: defaultSort.value.order
+    imageName: undefined,
+    categoryId: undefined,
+    params: {}
   },
   rules: {
-    file: [{ required: true, message: '文件不能为空', trigger: 'blur' }]
+    imageName: [
+      { required: true, message: "图片名称不能为空", trigger: "blur" }
+    ],
   }
 });
-
 const { queryParams, form, rules } = toRefs(data);
 
-/** 查询OSS对象存储列表 */
+const categoryOptions = ref<any[]>([]);
+const categoryMap = ref<{ [key: string]: string }>({});
+function buildCategoryMap(list: any[]) {
+  const map: { [key: string]: string } = {};
+  function traverse(arr: any[]) {
+    arr.forEach(item => {
+      map[item.categoryId] = item.categoryName;
+      if (item.children && item.children.length) {
+        traverse(item.children);
+      }
+    });
+  }
+  traverse(list);
+  return map;
+}
+const getCategoryOptions = async () => {
+  const res = await listCategory();
+  let treeData = [];
+  if (res.data && Array.isArray(res.data) && res.data.length > 0 && !res.data[0].children) {
+    treeData = listToTree(res.data);
+  } else {
+    treeData = res.data || [];
+  }
+  categoryOptions.value = treeData;
+  categoryMap.value = buildCategoryMap(treeData);
+}
+
+function listToTree(list, parentId = 0) {
+  return list
+    .filter(item => item.parentId === parentId)
+    .map(item => ({
+      ...item,
+      children: listToTree(list, item.categoryId)
+    }));
+}
+
+/** 查询图片列表 */
 const getList = async () => {
   loading.value = true;
-  const response = await listImage(queryParams.value);
-  ossList.value = response.rows;
-  total.value = response.total;
+  const res = await listImage(queryParams.value);
+  imageList.value = res.rows;
+  total.value = res.total;
   loading.value = false;
-  showTable.value = true;
-};
-// 2. 添加checkFileSuffix方法
-function checkFileSuffix(fileName: string) {
-  const arr = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
-  if (!fileName) return false;
-  return arr.some(suffix => fileName.toLowerCase().endsWith(suffix));
 }
+
 /** 取消按钮 */
-function cancel() {
-  dialog.visible = false;
+const cancel = () => {
   reset();
+  dialog.visible = false;
 }
+
 /** 表单重置 */
-function reset() {
+const reset = () => {
   form.value = { ...initFormData };
-  ossFormRef.value?.resetFields();
+  imageFormRef.value?.resetFields();
 }
+
 /** 搜索按钮操作 */
-function handleQuery() {
+const handleQuery = () => {
   queryParams.value.pageNum = 1;
   getList();
 }
+
 /** 重置按钮操作 */
-function resetQuery() {
-  showTable.value = false;
-  dateRangeCreateTime.value = ['', ''];
+const resetQuery = () => {
   queryFormRef.value?.resetFields();
-  queryParams.value.orderByColumn = defaultSort.value.prop;
-  queryParams.value.isAsc = defaultSort.value.order;
   handleQuery();
 }
-/** 选择条数  */
-function handleSelectionChange(selection: ImageVO[]) {
-  ids.value = selection.map((item) => item.imageId);
+
+/** 多选框选中数据 */
+const handleSelectionChange = (selection: ImageVO[]) => {
+  ids.value = selection.map(item => item.id);
   single.value = selection.length != 1;
   multiple.value = !selection.length;
 }
-/** 选择条数  */
-function handleSelectionChangeByCheckbox() {
-  single.value = ids.value.length !== 1;
-  multiple.value = !ids.value.length;
-}
-/** 设置列的排序为我们自定义的排序 */
-const handleHeaderClass = ({ column }: any): any => {
-  column.order = column.multiOrder;
-};
-/** 点击表头进行排序 */
-const handleHeaderCLick = (column: any) => {
-  if (column.sortable !== 'custom') {
-    return;
-  }
-  switch (column.multiOrder) {
-    case 'descending':
-      column.multiOrder = 'ascending';
-      break;
-    case 'ascending':
-      column.multiOrder = '';
-      break;
-    default:
-      column.multiOrder = 'descending';
-      break;
-  }
-  handleOrderChange(column.property, column.multiOrder);
-};
-const handleOrderChange = (prop: string, order: string) => {
-  const orderByArr = queryParams.value.orderByColumn ? queryParams.value.orderByColumn.split(',') : [];
-  const isAscArr = queryParams.value.isAsc ? queryParams.value.isAsc.split(',') : [];
-  const propIndex = orderByArr.indexOf(prop);
-  if (propIndex !== -1) {
-    if (order) {
-      //排序里已存在 只修改排序
-      isAscArr[propIndex] = order;
-    } else {
-      //如果order为null 则删除排序字段和属性
-      isAscArr.splice(propIndex, 1); //删除排序
-      orderByArr.splice(propIndex, 1); //删除属性
-    }
-  } else {
-    //排序里不存在则新增排序
-    orderByArr.push(prop);
-    isAscArr.push(order);
-  }
-  //合并排序
-  queryParams.value.orderByColumn = orderByArr.join(',');
-  queryParams.value.isAsc = isAscArr.join(',');
-  getList();
-};
-/** 任务日志列表查询 */
-const handleOssConfig = () => {
-  router.push('/system/oss-config/index');
-};
-/** 文件按钮操作 */
-const handleFile = () => {
-  reset();
-  type.value = 0;
-  dialog.visible = true;
-  dialog.title = '上传文件';
-};
-const imageTypes = [
-  'image/png', 'image/jpeg', 'image/jpg', 'image/gif',
-  'image/webp', 'image/bmp', 'image/svg+xml'
-];
 
-const handleBeforeUpload = (file: File) => {
-  if (!imageTypes.includes(file.type)) {
-    proxy?.$modal.msgError('请选择图片文件（png/jpg/jpeg/gif/webp/bmp/svg）');
+/** 新增按钮操作 */
+const handleAdd = async () => {
+  reset();
+  await getCategoryOptions();
+  dialog.visible = true;
+  dialog.title = "添加图片";
+}
+
+/** 修改按钮操作 */
+const handleUpdate = async (row?: ImageVO) => {
+  reset();
+  await getCategoryOptions();
+  const _id = row?.id || ids.value[0]
+  const res = await getImage(_id);
+  Object.assign(form.value, res.data);
+  dialog.visible = true;
+  dialog.title = "修改图片";
+}
+
+/** 提交按钮 */
+const submitForm = () => {
+  imageFormRef.value?.validate(async (valid: boolean) => {
+    if (valid) {
+      buttonLoading.value = true;
+      if (form.value.id) {
+        await updateImage(form.value).finally(() =>  buttonLoading.value = false);
+      } else {
+        await addImage(form.value).finally(() =>  buttonLoading.value = false);
+      }
+      proxy?.$modal.msgSuccess("操作成功");
+      dialog.visible = false;
+      await getList();
+    }
+  });
+}
+
+/** 删除按钮操作 */
+const handleDelete = async (row?: ImageVO) => {
+  const _ids = row?.id || ids.value;
+  await proxy?.$modal.confirm('是否确认删除图片编号为"' + _ids + '"的数据项？').finally(() => loading.value = false);
+  await delImage(_ids);
+  proxy?.$modal.msgSuccess("删除成功");
+  await getList();
+}
+
+/** 导出按钮操作 */
+const handleExport = () => {
+  proxy?.download('material/image/export', {
+    ...queryParams.value
+  }, `image_${new Date().getTime()}.xlsx`)
+}
+
+const beforeUpload = (file: File) => {
+  const isImage = file.type.startsWith('image/');
+  if (!isImage) {
+    proxy?.$modal.msgError('只能上传图片文件');
     return false;
   }
   return true;
 };
-const handleUploadSuccess = () => {
-  proxy?.$modal.msgSuccess('上传成功');
-  getList();
-};
-const handleUploadError = () => {
-  proxy?.$modal.msgError('上传失败');
-};
-/** 图片按钮操作 */
-const handleImage = () => {
-  // 触发文件选择
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = imageTypes.join(',');
-  input.multiple = true;
-  input.onchange = async (e: Event) => {
-    const files = Array.from((e.target as HTMLInputElement).files ?? []);
-    for (const file of files) {
-      if (!imageTypes.includes(file.type)) {
-        proxy?.$modal.msgError('请选择图片文件（png/jpg/jpeg/gif/webp/bmp/svg）');
-        continue;
-      }
-      const formData = new FormData();
-      formData.append('file', file as Blob);
-      formData.append('type', 'image'); // 携带类型
-      // 这里假设有uploadOssImage接口
-      // await uploadOssImage(formData); // This line was removed as per the edit hint.
-    }
-    getList();
-  };
-  input.click();
-};
-/** 提交按钮 */
-const submitForm = () => {
-  dialog.visible = false;
-  getList();
-};
-/** 下载按钮操作 */
-const handleDownload = (row: ImageVO) => {
-  window.open(import.meta.env.VITE_APP_BASE_API + '/material/image/download/' + row.imageId, '_blank');
-};
-/** 预览开关按钮  */
-const handlePreviewListResource = async (preview: boolean) => {
-  const text = preview ? '启用' : '停用';
+const uploadImage = async (option: any) => {
+  buttonLoading.value = true;
   try {
-    await proxy?.$modal.confirm('确认要"' + text + '""预览列表图片"配置吗?');
-    await proxy?.updateConfigByKey('sys.oss.previewListResource', preview);
-    await getList();
-    proxy?.$modal.msgSuccess(text + '成功');
-  } catch {
-    return;
+    const formData = new FormData();
+    form.value && formData.append('file', option.file);
+    const res = await uploadFile(formData);
+    form.value.imageFile = res.data;
+    form.value.url = res.data.url;
+    proxy?.$modal.msgSuccess('上传成功');
+    option.onSuccess(res.data);
+  } catch (e) {
+    proxy?.$modal.msgError('上传失败');
+    option.onError(e);
+  } finally {
+    buttonLoading.value = false;
   }
 };
-/** 删除按钮操作 */
-const handleDelete = async () => {
-  if (!ids.value.length) {
-    proxy?.$modal.msgWarning('请先选择要删除的图片');
-    return;
-  }
-  await proxy?.$modal.confirm('是否确认删除选中的图片？');
-  loading.value = true;
-  await delImage(ids.value).finally(() => (loading.value = false));
-  await getList();
+const removeImageFile = async () => {
+  if (!form.value.imageFile) return;
+  await delOss(form.value.imageFile.ossId);
+  form.value.imageFile = null;
+  form.value.url = undefined;
   proxy?.$modal.msgSuccess('删除成功');
 };
 
 onMounted(() => {
+  getCategoryOptions();
   getList();
 });
 </script>
-
-<style scoped>
-.image-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-}
-.image-item {
-  position: relative;
-  width: 160px;
-  text-align: center;
-  cursor: pointer;
-}
-.image-checkbox {
-  position: absolute;
-  left: 4px;
-  top: 4px;
-  z-index: 2;
-}
-.image-thumb {
-  width: 100%;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 8px;
-  background: #f5f5f5;
-}
-.image-name {
-  margin-top: 8px;
-  font-size: 14px;
-  color: #333;
-  word-break: break-all;
-}
-.image-delete-btn {
-  margin-top: 6px;
-  width: 80px;
-}
-</style>

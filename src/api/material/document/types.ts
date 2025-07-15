@@ -1,28 +1,29 @@
 export interface DocumentVO {
   /**
-   * 对象存储主键
+   * 主键ID
    */
-  documentId: string | number;
+  id: string | number;
 
   /**
-   * 文件名
+   * 文档名称
    */
   documentName: string;
-
-  /**
-   * 原名
-   */
-  originalName: string;
-
-  /**
-   * 文件后缀名
-   */
-  documentSuffix: string;
 
   /**
    * URL地址
    */
   url: string;
+
+  /**
+   * 文档大小
+   */
+  size: string;
+
+  /**
+   * 分类
+   */
+  categoryId: string | number;
+
 }
 
 export interface DocumentForm extends BaseEntity {
@@ -37,14 +38,19 @@ export interface DocumentForm extends BaseEntity {
   documentName?: string;
 
   /**
-   * 文档路径
+   * URL地址
    */
-  documentPath?: string;
+  url?: string;
 
   /**
    * 文档大小
    */
-  documentSize?: string;
+  size?: string;
+
+  /**
+   * 分类
+   */
+  categoryId?: string | number;
 
 }
 
@@ -54,6 +60,11 @@ export interface DocumentQuery extends PageQuery {
    * 文档名称
    */
   documentName?: string;
+
+  /**
+   * 分类
+   */
+  categoryId?: string | number;
 
     /**
      * 日期范围参数
