@@ -26,3 +26,13 @@ export function delOss(ossId: string | number | Array<string | number>) {
     method: 'delete'
   });
 }
+
+// 上传文件到OSS
+export function uploadFile(formData: FormData) {
+  return request({
+    url: '/resource/oss/upload',
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+}

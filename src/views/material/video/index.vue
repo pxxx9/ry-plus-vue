@@ -41,18 +41,12 @@
         <el-table-column label="视频名称" align="center" prop="videoName" />
         <el-table-column label="视频路径" align="center" prop="videoPath">
           <template #default="scope">
-            <video v-if="scope.row.videoPath && isVideo(scope.row.videoPath)" :src="scope.row.videoPath" controls style="max-width:120px;max-height:80px;" />
-            <span v-else-if="scope.row.videoPath">{{ scope.row.videoPath }}</span>
-            <span v-else>-</span>
+            <video v-if="scope.row.videoPath" :src="scope.row.videoPath" controls style="width: 120px; height: 80px; object-fit: cover;" />
+            <span v-else>--</span>
           </template>
         </el-table-column>
         <el-table-column label="视频时长" align="center" prop="videoDuration" />
-        <el-table-column label="创建时间" align="center" prop="createTime" width="180">
-          <template #default="scope">
-            <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d}') }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="创建人" align="center" prop="createBy" />
+        <el-table-column label="分类" align="center" prop="categoryId" />
         <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
           <template #default="scope">
             <el-tooltip content="修改" placement="top">
@@ -70,21 +64,43 @@
     <!-- 添加或修改视频对话框 -->
     <el-dialog :title="dialog.title" v-model="dialog.visible" width="500px" append-to-body>
       <el-form ref="videoFormRef" :model="form" :rules="rules" label-width="80px">
+        <el-form-item label="分类" prop="categoryId">
+          <el-tree-select
+            v-model="form.categoryId"
+            :data="categoryOptions"
+            :props="{ label: 'categoryName', value: 'categoryId', children: 'children' }"
+            placeholder="请选择分类"
+            check-strictly
+            filterable
+            style="width: 100%"
+          />
+        </el-form-item>
         <el-form-item label="视频名称" prop="videoName">
           <el-input v-model="form.videoName" placeholder="请输入视频名称" />
         </el-form-item>
-        <el-form-item label="视频路径" prop="videoPath">
-          <file-upload
-            v-model="form.videoPath"
-            @success="onUploadSuccess"
-            :limit="1"
-            :file-size="100"
-          />
-          <el-link v-if="form.videoPath" :href="form.videoPath" target="_blank">{{ form.videoPath }}</el-link>
+        <el-form-item label="视频上传" prop="videoPath">
+          <el-upload
+            class="video-upload-drag"
+            drag
+            :show-file-list="false"
+            :before-upload="beforeUpload"
+            :http-request="uploadVideo"
+            accept="video/*"
+            style="width:100%"
+            v-if="!form.videoFile"
+          >
+            <div style="text-align:center;padding:15px 0;">
+              <el-icon style="font-size:38px;margin-bottom:12px;"><folder /></el-icon>
+              <div style="font-size:18px;">选择视频文件</div>
+            </div>
+          </el-upload>
+          <div v-else style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid #eee;border-radius:6px;">
+            <span>{{ form.videoFile.fileName }}</span>
+            <el-button type="text" style="color: #ff4d4f" @click="removeFile">删除</el-button>
+          </div>
         </el-form-item>
-        <el-form-item label="视频时长" prop="videoDuration">
-          <el-input v-model="form.videoDuration" placeholder="请输入视频时长" />
-        </el-form-item>
+        
+        
       </el-form>
       <template #footer>
         <div class="dialog-footer">
@@ -97,10 +113,10 @@
 </template>
 
 <script setup name="Video" lang="ts">
-import { listVideo, getVideo, delVideo, addVideo, updateVideo } from '@/api/material/video';
+import { listVideo, getVideo, delVideo, addVideo, updateVideo } from '@/api/material/video/index';
 import { VideoVO, VideoQuery, VideoForm } from '@/api/material/video/types';
-import { listOss, delOss } from '@/api/system/oss';
-import { getToken } from '@/utils/auth';
+import { listCategory } from '@/api/category/category/index';
+import { uploadFile, delOss } from '@/api/system/oss/index';
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
 
@@ -116,42 +132,54 @@ const total = ref(0);
 const queryFormRef = ref<ElFormInstance>();
 const videoFormRef = ref<ElFormInstance>();
 
+const categoryOptions = ref<any[]>([]);
+
 const dialog = reactive<DialogOption>({
   visible: false,
   title: ''
 });
 
-const initFormData: VideoForm = {
+// VideoForm类型扩展，支持videoFile
+interface VideoFileInfo {
+  url: string;
+  fileName: string;
+  ossId: string;
+}
+interface VideoFormEx extends VideoForm {
+  videoFile?: VideoFileInfo | null;
+}
+
+const initFormData: VideoFormEx = {
   id: undefined,
   videoName: undefined,
   videoPath: undefined,
   videoDuration: undefined,
+  categoryId: undefined,
+  videoFile: null
 }
-const data = reactive<PageData<VideoForm, VideoQuery>>({
-  form: {...initFormData},
+const data = reactive<PageData<VideoFormEx, VideoQuery>>({
+  form: { ...initFormData },
   queryParams: {
     pageNum: 1,
     pageSize: 10,
     videoName: undefined,
-    params: {
-    }
+    categoryId: undefined,
+    params: {}
   },
   rules: {
+    videoName: [
+      { required: true, message: "视频名称不能为空", trigger: "blur" }
+    ],
     videoPath: [
       { required: true, message: "视频路径不能为空", trigger: "blur" }
     ],
+    categoryId: [
+      { required: true, message: "分类不能为空", trigger: "change" }
+    ]
   }
 });
 
 const { queryParams, form, rules } = toRefs(data);
-
-const onUploadSuccess = (res: any) => {
-  console.log('上传文件返回数据:', res);
-  if (res && res.data && res.data.url) {
-    console.log('上传文件返回的 url:', res.data.url);
-    form.value.videoPath = res.data.url;
-  }
-};
 
 /** 查询视频列表 */
 const getList = async () => {
@@ -162,6 +190,75 @@ const getList = async () => {
   loading.value = false;
 }
 
+/** 工具：一维数组转树结构 */
+function listToTree(list, parentId = 0) {
+  return list
+    .filter(item => item.parentId === parentId)
+    .map(item => ({
+      ...item,
+      children: listToTree(list, item.categoryId)
+    }));
+}
+
+/** 查询分类下拉列表（树结构） */
+const getCategoryOptions = async () => {
+  const res = await listCategory();
+  if (res.data && Array.isArray(res.data) && res.data.length > 0 && !res.data[0].children) {
+    categoryOptions.value = listToTree(res.data);
+  } else {
+    categoryOptions.value = res.data || [];
+  }
+}
+
+/** OSS上传视频，只允许视频类型，上传后自动获取视频时长 */
+const beforeUpload = (file: File) => {
+  const isVideo = file.type.startsWith('video/');
+  if (!isVideo) {
+    proxy?.$modal.msgError('只能上传视频文件');
+    return false;
+  }
+  return true;
+};
+const uploadVideo = async (option: any) => {
+  buttonLoading.value = true;
+  try {
+    const formData = new FormData();
+    form.value && formData.append('file', option.file);
+    const res = await uploadFile(formData);
+    // 假设返回 { url, fileName, ossId }
+    form.value.videoFile = res.data;
+    form.value.videoPath = res.data.url;
+    // 自动获取视频时长
+    getVideoDuration(res.data.url);
+    proxy?.$modal.msgSuccess('上传成功');
+    option.onSuccess(res.data);
+  } catch (e) {
+    proxy?.$modal.msgError('上传失败');
+    option.onError(e);
+  } finally {
+    buttonLoading.value = false;
+  }
+};
+
+const removeFile = async () => {
+  if (!form.value.videoFile) return;
+  await delOss(form.value.videoFile.ossId);
+  form.value.videoFile = null;
+  form.value.videoPath = undefined;
+  form.value.videoDuration = undefined;
+  proxy?.$modal.msgSuccess('删除成功');
+};
+
+/** 自动获取视频时长 */
+const getVideoDuration = (url: string) => {
+  const video = document.createElement('video');
+  video.src = url;
+  video.preload = 'metadata';
+  video.onloadedmetadata = function () {
+    form.value.videoDuration = video.duration ? video.duration.toFixed(2) : '';
+  };
+};
+
 /** 取消按钮 */
 const cancel = () => {
   reset();
@@ -170,7 +267,7 @@ const cancel = () => {
 
 /** 表单重置 */
 const reset = () => {
-  form.value = {...initFormData};
+  form.value = { ...initFormData };
   videoFormRef.value?.resetFields();
 }
 
@@ -194,8 +291,9 @@ const handleSelectionChange = (selection: VideoVO[]) => {
 }
 
 /** 新增按钮操作 */
-const handleAdd = () => {
+const handleAdd = async () => {
   reset();
+  await getCategoryOptions();
   dialog.visible = true;
   dialog.title = "添加视频";
 }
@@ -203,6 +301,7 @@ const handleAdd = () => {
 /** 修改按钮操作 */
 const handleUpdate = async (row?: VideoVO) => {
   reset();
+  await getCategoryOptions();
   const _id = row?.id || ids.value[0]
   const res = await getVideo(_id);
   Object.assign(form.value, res.data);
@@ -216,7 +315,7 @@ const submitForm = () => {
     if (valid) {
       buttonLoading.value = true;
       if (form.value.id) {
-          await updateVideo(form.value).finally(() =>  buttonLoading.value = false);
+        await updateVideo(form.value).finally(() =>  buttonLoading.value = false);
       } else {
         await addVideo(form.value).finally(() =>  buttonLoading.value = false);
       }
@@ -230,42 +329,17 @@ const submitForm = () => {
 /** 删除按钮操作 */
 const handleDelete = async (row?: VideoVO) => {
   const _ids = row?.id || ids.value;
-  let videos: VideoVO[] = [];
-  if (row) {
-    videos = [row];
-  } else {
-    videos = videoList.value.filter(v => Array.isArray(_ids) ? _ids.includes(v.id) : v.id === _ids);
-  }
-  // 1. 先删除数据库中的视频信息
   await proxy?.$modal.confirm('是否确认删除视频编号为"' + _ids + '"的数据项？').finally(() => loading.value = false);
   await delVideo(_ids);
-  // 2. 再删除 OSS 文件（不影响主流程）
-  for (const video of videos) {
-    if (video.videoPath) {
-      try {
-        const ossRes = await listOss({ url: video.videoPath });
-        if (ossRes.data && ossRes.data.length > 0) {
-          const ossId = ossRes.data[0].ossId;
-          await delOss(ossId);
-        }
-      } catch (e) {
-        // 忽略OSS删除失败
-      }
-    }
-  }
   proxy?.$modal.msgSuccess("删除成功");
   await getList();
-};
+}
 
 /** 导出按钮操作 */
 const handleExport = () => {
   proxy?.download('material/video/export', {
     ...queryParams.value
   }, `video_${new Date().getTime()}.xlsx`)
-}
-
-function isVideo(url: string) {
-  return /\.(mp4|webm|ogg|mov|avi|wmv|flv)$/i.test(url);
 }
 
 onMounted(() => {

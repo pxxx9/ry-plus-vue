@@ -20,14 +20,9 @@ export interface VideoVO {
   videoDuration: string | number;
 
   /**
-   * 创建时间
+   * 分类
    */
-  createTime: string;
-
-  /**
-   * 创建人
-   */
-  createBy: number;
+  categoryId: string | number;
 
 }
 
@@ -52,6 +47,11 @@ export interface VideoForm extends BaseEntity {
    */
   videoDuration?: string | number;
 
+  /**
+   * 分类
+   */
+  categoryId?: string | number;
+
 }
 
 export interface VideoQuery extends PageQuery {
@@ -60,6 +60,11 @@ export interface VideoQuery extends PageQuery {
    * 视频名称
    */
   videoName?: string | number;
+
+  /**
+   * 分类
+   */
+  categoryId?: string | number;
 
     /**
      * 日期范围参数
